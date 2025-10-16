@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mechine_test_noviindus/features/home/presentation/view/home.dart';
 import 'package:mechine_test_noviindus/features/login/presentation/bloc/login_bloc.dart';
 import 'package:mechine_test_noviindus/features/login/presentation/bloc/login_event.dart';
 import 'package:mechine_test_noviindus/features/login/presentation/bloc/login_state.dart';
@@ -37,10 +38,10 @@ class _LoginPageState extends State<LoginPage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Login Successful!")),
                 );
-                // Navigator.pushReplacement(
-                //   context,
-                //   MaterialPageRoute(builder: (_) => const HomePage()),
-                // );
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                );
               },
               orElse: () {},
             );
