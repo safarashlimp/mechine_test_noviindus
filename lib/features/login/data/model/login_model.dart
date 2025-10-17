@@ -15,7 +15,7 @@ class LoginModel with _$LoginModel {
 
   factory LoginModel.fromJson(Map<String, dynamic> json) =>
       _$LoginModelFromJson(json);
-}   
+}
 
 @freezed
 class ValidationErrors with _$ValidationErrors {

@@ -4,10 +4,7 @@ class HomeEntity extends Equatable {
   final List<CategoryEntity> categories;
   final List<FeedEntity> feeds;
 
-  const HomeEntity({
-    required this.categories,
-    required this.feeds,
-  });
+  const HomeEntity({required this.categories, required this.feeds});
 
   @override
   List<Object?> get props => [categories, feeds];
@@ -47,11 +44,7 @@ class UserEntity extends Equatable {
   final String name;
   final String? image;
 
-  const UserEntity({
-    required this.id,
-    required this.name,
-    this.image,
-  });
+  const UserEntity({required this.id, required this.name, this.image});
 
   @override
   List<Object?> get props => [id, name, image];

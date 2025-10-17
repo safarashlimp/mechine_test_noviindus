@@ -1,7 +1,7 @@
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mechine_test_noviindus/features/login/data/model/login_model.dart';
 part 'login_entity.freezed.dart';
+
 @freezed
 class LoginEntity with _$LoginEntity {
   const LoginEntity._();
@@ -45,7 +45,3 @@ class ValidationErrorsEntity with _$ValidationErrorsEntity {
     );
   }
 }
-
-
-
-

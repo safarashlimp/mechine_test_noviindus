@@ -12,7 +12,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   }
 
   Future<void> _onFetchHomeData(
-      FetchHomeData event, Emitter<HomeState> emit) async {
+    FetchHomeData event,
+    Emitter<HomeState> emit,
+  ) async {
     emit(const HomeState.loading());
     try {
       final data = await repository.getHomeData();

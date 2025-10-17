@@ -2,7 +2,6 @@ import 'package:mechine_test_noviindus/features/home/domain/entities/home_entiti
 
 import '../model/home_model.dart';
 
-
 extension HomeMapper on HomeModel {
   HomeEntity toEntity() {
     return HomeEntity(
@@ -11,7 +10,6 @@ extension HomeMapper on HomeModel {
     );
   }
 }
-
 
 extension CategoryMapper on CategoryDictModel {
   CategoryEntity toEntity() => CategoryEntity(id: id, title: title);

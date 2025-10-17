@@ -1,24 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:chewie/chewie.dart';
+import 'package:mechine_test_noviindus/features/add_video/domain/repository/add_video_repository.dart';
+import 'package:mechine_test_noviindus/features/add_video/presentation/bloc/add_video_bloc.dart';
+import 'package:mechine_test_noviindus/features/add_video/presentation/view/add_video.dart';
+import 'package:mechine_test_noviindus/features/home/domain/entities/home_entitiy.dart';
+import 'package:mechine_test_noviindus/util/service_locator/service_locator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
 import 'package:mechine_test_noviindus/features/home/presentation/bloc/home_bloc.dart';
 import 'package:mechine_test_noviindus/features/home/presentation/bloc/home_event.dart';
 import 'package:mechine_test_noviindus/features/home/presentation/bloc/home_state.dart';
-import '../../domain/entities/home_entitiy.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => context.read<HomeBloc>()..add(const FetchHomeData()),
-      child: const HomePageContent(),
-    );
-  }
+  State<HomePage> createState() => _HomePageState();
 }
 
-class HomePageContent extends StatelessWidget {
-  const HomePageContent({super.key});
+class _HomePageState extends State<HomePage> {
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+  int? _playingIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<HomeBloc>().add(const FetchHomeData());
+  }
+
+  @override
+  void dispose() {
+    _disposeVideo();
+    super.dispose();
+  }
+
+  void _disposeVideo() {
+    _chewieController?.dispose();
+    _videoController?.dispose();
+    _chewieController = null;
+    _videoController = null;
+  }
+
+  Future<void> _playVideo(String url, int index) async {
+    if (_playingIndex == index) return; // same video, do nothing
+    _disposeVideo();
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    await controller.initialize();
+
+    final chewie = ChewieController(
+      videoPlayerController: controller,
+      autoPlay: true,
+      looping: false,
+      allowFullScreen: true,
+      allowMuting: true,
+      aspectRatio: controller.value.aspectRatio,
+      showControls: true,
+      materialProgressColors: ChewieProgressColors(
+        playedColor: Colors.red,
+        handleColor: Colors.white,
+        backgroundColor: Colors.grey,
+        bufferedColor: Colors.white24,
+      ),
+    );
+
+    setState(() {
+      _videoController = controller;
+      _chewieController = chewie;
+      _playingIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +81,15 @@ class HomePageContent extends StatelessWidget {
         child: BlocBuilder<HomeBloc, HomeState>(
           builder: (context, state) {
             return state.when(
-              initial: () => const Center(child: Text('Initializing...')),
-              loading: () =>
-                  const Center(child: CircularProgressIndicator(color: Colors.red)),
+              initial: () => const Center(
+                child: Text(
+                  'Initializing...',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: Colors.red),
+              ),
               loaded: (data) => _buildHomeUI(context, data),
               error: (message) => Center(
                 child: Text(
@@ -49,89 +108,78 @@ class HomePageContent extends StatelessWidget {
     final categories = data.categories;
     final feeds = data.feeds;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // --- Header ---
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Home",
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Row(
-                children: const [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundImage: AssetImage('assets/user.jpg'),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(Icons.notifications_none, color: Colors.white),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+    return Scaffold(
+      backgroundColor: const Color(0xFF1C1C1C),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.red,
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final token = prefs.getString('access_token') ?? '';
 
-          // --- Categories Scroll ---
-          SizedBox(
-            height: 40,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+          // ✅ Pass categories from loaded HomeEntity
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BlocProvider(
+                create: (_) =>
+                    AddVideoBloc(repository: getIt<VideoRepository>()),
+                child: AddVideoPage(token: token, categories: categories),
+              ),
+            ),
+          );
+        },
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Home",
+              style: TextStyle(color: Colors.white, fontSize: 22),
+            ),
+            const SizedBox(height: 16),
+
+            // --- Category Chips ---
+            SizedBox(
+              height: 40,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return _categoryChip(category.title, isSelected: index == 0);
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // --- Feed List ---
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: feeds.length,
               itemBuilder: (context, index) {
-                final category = categories[index];
-                return _categoryChip(category.title, isSelected: index == 0);
+                final feed = feeds[index];
+                return GestureDetector(
+                  onTap: () => _playVideo(feed.video, index),
+                  child: _videoCard(
+                    name: feed.user.name,
+                    subject: feed.description,
+                    thumbnail: feed.image,
+                    profile:
+                        feed.user.image ??
+                        'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                    index: index,
+                    feedUrl: feed.video,
+                  ),
+                );
               },
             ),
-          ),
-          const SizedBox(height: 20),
-
-          // --- Feed List / Video Cards ---
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: feeds.length,
-            itemBuilder: (context, index) {
-              final feed = feeds[index];
-              return _videoCard(
-                name: feed.user.name,
-                subject: feed.description,
-                thumbnail: feed.image,
-                profile: feed.user.image ??
-                    'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-              );
-            },
-          ),
-           Positioned(
-                bottom: 10,
-                right: 10,
-                child: InkWell(
-                  onTap: () {
-//Navigator.push(context, MaterialPageRoute(builder: (_) => AddVideoPage()));
-                    // Handle add button tap
-                  },
-                  borderRadius: BorderRadius.circular(50),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(8),
-                    child: const Icon(Icons.add, color: Colors.white, size: 20),
-                  ),
-                ),
-              ),
-            ],
-        
+          ],
+        ),
       ),
     );
   }
@@ -159,7 +207,11 @@ class HomePageContent extends StatelessWidget {
     required String subject,
     required String thumbnail,
     required String profile,
+    required int index,
+    required String feedUrl,
   }) {
+    final isPlaying = _playingIndex == index;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
@@ -169,33 +221,49 @@ class HomePageContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Thumbnail
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  thumbnail,
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, _, __) =>
-                      const Icon(Icons.broken_image, color: Colors.grey, size: 50),
-                ),
+          // --- Video or Thumbnail ---
+          AspectRatio(
+            aspectRatio: isPlaying && _videoController != null
+                ? _videoController!.value.aspectRatio
+                : 16 / 9,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
               ),
-              Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black45,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(8),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
-              ),
-            ],
+              child: isPlaying && _chewieController != null
+                  ? Chewie(controller: _chewieController!)
+                  : Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Image.network(
+                          thumbnail,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                            size: 40,
+                          ),
+                        ),
+                        Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
 
-          // Info Section
+          // --- Info Section ---
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -212,14 +280,18 @@ class HomePageContent extends StatelessWidget {
                       Text(
                         name,
                         style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
                       Text(
                         subject,
                         style: const TextStyle(
-                            color: Colors.grey, fontSize: 12, height: 1.3),
+                          color: Colors.grey,
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ),
